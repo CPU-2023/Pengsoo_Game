@@ -1,5 +1,8 @@
 #pragma warning(disable:4996)
+#include <mysql.h>
+#include <errno.h>
 
+#define MAX_STRING 70
 #define MAP_WIDTH 18
 #define MAP_HEIGHT 100
 

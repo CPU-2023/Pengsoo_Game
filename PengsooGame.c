@@ -1,6 +1,7 @@
 #include "modules.h"
 #include "PengsooGame.h"
 
+
 int Px, Py;	// 플레이어 좌표 저장 변수선언(x,y)
 int key = 0;
 int playing = 1; //1이면 게임중, 0이면 게임 종료
@@ -130,7 +131,7 @@ void show_title() {
 	gotoxy(x, y++); printf(" | |__| | (_| | | | | | |  __/");
 	gotoxy(x, y++); printf("  \\_____|\\__,_|_| |_| |_|\\___|  ");
 	*/
-
+	
 	gotoxy(x, y++); printf(" 888888ba");
 	gotoxy(x, y++); printf(" 88    `8b");
 	gotoxy(x, y++); printf("a88aaaa8P' .d8888b. 88d888b. .d8888b. .d8888b. .d8888b. .d8888b.");
@@ -209,6 +210,36 @@ int show_maplist() {
 
 void show_rank() {
 	system("cls");
+	MYSQL mysql;
+	MYSQL_RES* res;
+	MYSQL_ROW row;
+	int fields;
+
+	int id = 7;
+	char name[20] = { "mirim kim" };
+	int score = 130;
+
+	mysql_init(&mysql);
+
+	if (!mysql_real_connect(&mysql, NULL, "root", "mirim", "test123", 3306, (char*)NULL, 0))
+	{
+		printf("%s\n", mysql_error(&mysql));
+		exit(1);
+	}
+
+
+	if (mysql_query(&mysql, "USE test123"))
+		// mysql_query()는 query 수행시에 에러가 나게 되면
+		// 0이 아닌 값을 리턴한다.
+	{
+		printf("%s\n", mysql_error(&mysql));
+		exit(1);
+	}
+
+	char query[MAX_STRING] = { 0 };
+
+	setColor(lightcyan);
+
 	int x = 35, y = 4;
 	gotoxy(x, y++); printf(" 888888ba                    dP       oo ");
 	gotoxy(x, y++); printf(" 88    `8b                   88");
@@ -219,13 +250,36 @@ void show_rank() {
 	gotoxy(x, y++); printf("                                                       .88");
 	gotoxy(x, y++); printf("                                                   d8888P");
 
-	x = 55, y = 14;
+	/*x = 55, y = 14;
 	// 순번 | 사용자 이름 | 점수
 	gotoxy(x, y++); printf("%d | %s | %d", 1, "yoyo", 400);
 	gotoxy(x, y++); printf("%d | %s | %d", 1, "avc", 300);
-	gotoxy(x, y++); printf("%d | %s | %d", 1, "oloa", 200);
+	gotoxy(x, y++); printf("%d | %s | %d", 1, "oloa", 200);*/
 
-	// db에서 플레이어 정보 불러오기
+	x = 28, y = 14;
+
+
+	if (mysql_query(&mysql, "SELECT * FROM player ORDER BY score DESC"))
+	{
+		printf("%s\n", mysql_error(&mysql));
+		exit(1);
+	}
+
+	res = mysql_store_result(&mysql);
+	fields = mysql_num_fields(res);
+
+	setColor(white);
+	while ((row = mysql_fetch_row(res)))
+	{
+		gotoxy(x, y++);
+		for (int cnt = 0; cnt < fields; ++cnt) {
+			printf("%12s ", row[cnt]);
+		}
+		printf("\n");
+	}
+
+	mysql_free_result(res);
+	mysql_close(&mysql);
 
 	// 입력받으면 메인화면으로
 	gotoxy(40, 25);
@@ -263,6 +317,7 @@ void gLoop(int map_num) {
 		double diff = difftime(new_time, old_time);
 		if (diff > DELAY) {
 			gameOver();
+			show_rank();
 			break;
 		}
 		drawTime(diff, DELAY);
@@ -298,7 +353,7 @@ void gameClear()
 	while (1) {
 		input = _getch();
 		if (input == ENTER) {
-			system("cls");
+			show_rank();
 			break;
 		}
 	}
