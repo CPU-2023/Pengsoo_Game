@@ -6,13 +6,14 @@ int Px, Py;	// 플레이어 좌표 저장 변수선언(x,y)
 int key = 0;
 int playing = 1; //1이면 게임중, 0이면 게임 종료
 int move_key = 0;
+int auth;
 
 typedef struct user {
 	char name[10];
 	int score;
 }User;
 
-User user;
+User _userData;
 
 char tempMap[MAP_WIDTH][MAP_HEIGHT];
 
@@ -35,7 +36,7 @@ char map1[MAP_WIDTH][MAP_HEIGHT] = {
 	{"0000000000000000010s010001111111111111111111111111111111111111111100q0001"},
 	{"0000000000000000010001000l00000000000000k0000000000000000000000l000000001"},
 	{"0000000000000000011111111111111111111111111111111111111111111111111111111"}
-};
+}; 
 
 char map2[MAP_WIDTH][MAP_HEIGHT] = {
 	{"0"},
@@ -87,9 +88,11 @@ int main(void) {
 
 	int select;
 	int level;
+	
 	while (1) {
 		system("cls");
 		show_title();
+		auth = 0;
 		select = draw_menu();
 		if (select == 0) {
 			setUser();
@@ -156,7 +159,6 @@ void show_title() {
 
 int draw_menu() {
 	int x = 90, y = 14;
-	int input;
 	gotoxy(x - 2, y); printf("> 게임시작");
 	gotoxy(x, y + 1); printf("랭킹보기");
 	gotoxy(x, y + 2); printf("게임종료");
@@ -184,12 +186,10 @@ void setUser() {
 	gotoxy_2x(setX + 5, setY + 4);
 	printf("* 참가자님 이름을 입력해주세요(5자이내) *\n");
 	gotoxy_2x(setX + 15, setY + 6);
-	scanf("%s", user.name);
+	scanf("%s", _userData.name);
 
 	system("cls");
-	gotoxy(58, 14);
-	printf("%s님 환영합니다", user.name);
-	Sleep(1500);
+	Sleep(300);
 }
 
 int show_maplist() {
@@ -210,33 +210,29 @@ int show_maplist() {
 
 void show_rank() {
 	system("cls");
-	MYSQL mysql;
+	MYSQL* conn;
 	MYSQL_RES* res;
 	MYSQL_ROW row;
-	int fields;
 
-	int id = 7;
-	char name[20] = { "mirim kim" };
-	int score = 130;
+	char* server = "127.0.0.1";
+	char* user = "root";
+	char* password = "mirim"; // 실제 비밀번호로 변경해주세요.
+	char* database = "test123";
 
-	mysql_init(&mysql);
+	//user.name
+	//user.score
+	//user.id
+	
+	conn = mysql_init(NULL);
 
-	if (!mysql_real_connect(&mysql, NULL, "root", "mirim", "test123", 3306, (char*)NULL, 0))
-	{
-		printf("%s\n", mysql_error(&mysql));
+	// MySQL 서버에 연결
+	if (!mysql_real_connect(conn, server, user, password, database, 0, NULL, 0)) {
+		fprintf(stderr, "%s\n", mysql_error(conn));
 		exit(1);
 	}
 
+	if (auth) insert_data(conn);
 
-	if (mysql_query(&mysql, "USE test123"))
-		// mysql_query()는 query 수행시에 에러가 나게 되면
-		// 0이 아닌 값을 리턴한다.
-	{
-		printf("%s\n", mysql_error(&mysql));
-		exit(1);
-	}
-
-	char query[MAX_STRING] = { 0 };
 
 	setColor(lightcyan);
 
@@ -250,36 +246,31 @@ void show_rank() {
 	gotoxy(x, y++); printf("                                                       .88");
 	gotoxy(x, y++); printf("                                                   d8888P");
 
-	/*x = 55, y = 14;
-	// 순번 | 사용자 이름 | 점수
-	gotoxy(x, y++); printf("%d | %s | %d", 1, "yoyo", 400);
-	gotoxy(x, y++); printf("%d | %s | %d", 1, "avc", 300);
-	gotoxy(x, y++); printf("%d | %s | %d", 1, "oloa", 200);*/
 
-	x = 28, y = 14;
+	x = 50, y = 14;
 
 
-	if (mysql_query(&mysql, "SELECT * FROM player ORDER BY score DESC"))
-	{
-		printf("%s\n", mysql_error(&mysql));
+	// SELECT 쿼리 실행
+	if (mysql_query(conn, "SELECT * FROM player ORDER BY score DESC")) {
+		fprintf(stderr, "%s\n", mysql_error(conn));
 		exit(1);
 	}
 
-	res = mysql_store_result(&mysql);
-	fields = mysql_num_fields(res);
+	// 쿼리 결과 가져오기
+	res = mysql_store_result(conn);
 
+	// 결과 출력
 	setColor(white);
-	while ((row = mysql_fetch_row(res)))
-	{
+	gotoxy(x, y);
+	int i = 1;
+	while ((row = mysql_fetch_row(res)) != NULL) {
 		gotoxy(x, y++);
-		for (int cnt = 0; cnt < fields; ++cnt) {
-			printf("%12s ", row[cnt]);
-		}
-		printf("\n");
+		printf("%d\t %s   %s\n", i++, row[0], row[1]);
 	}
 
+	// 연결 해제
 	mysql_free_result(res);
-	mysql_close(&mysql);
+	mysql_close(conn);
 
 	// 입력받으면 메인화면으로
 	gotoxy(40, 25);
@@ -309,6 +300,8 @@ void gLoop(int map_num) {
 
 
 	while (playing) {
+		auth = 1;
+		int score;
 		gamerule();
 		drawUI(&Px, &Py, &key);
 		move_key = getch();
@@ -317,6 +310,7 @@ void gLoop(int map_num) {
 		double diff = difftime(new_time, old_time);
 		if (diff > DELAY) {
 			gameOver();
+			_userData.score = 0;
 			show_rank();
 			break;
 		}
@@ -324,7 +318,9 @@ void gLoop(int map_num) {
 		maze_key();
 	}
 	if (!playing) {
+		_userData.score = DELAY/100;
 		gameClear();
+		show_rank();
 	}
 
 }
@@ -334,7 +330,7 @@ void gameOver()
 	int input;
 	system("cls");
 	printf("game over\n");
-	printf("%s님의 점수는?", user.name);
+	printf("%s님의 점수는?", _userData.name);
 	while (1) {
 		input = _getch();
 		if (input == ENTER) {
@@ -348,12 +344,24 @@ void gameClear()
 {
 	int input;
 	system("cls");
-	printf("game clear\n");
-	printf("%s님의 점수는?", user.name);
+	int x = 35, y = 4;
+
+	gotoxy(x, y++); printf("   _____                         _____ _    ");
+	gotoxy(x, y++); printf("  / ____|                       / ____| | ");
+	gotoxy(x, y++); printf(" | |  __  __ _ _ __ ___   ___  | |    | | ");
+	gotoxy(x, y++); printf(" | | |_ |/ _` | '_ ` _ \ / _ \ | |    | |/ _ \/ _` | '__|");
+	gotoxy(x, y++); printf(" | |__| | (_| | | | | | |  __/ | |____| |  __/ (_| | |   ");
+	gotoxy(x, y++); printf("   \_____|\__,_|_| |_| |_|\___|  \_____|_|\___|\__,_|_|");
+
+
+
+	x = 20, y = 20;
+	gotoxy(x, y);
+	printf("%s님의 점수를 확인하려면 엔터를 눌러주세요", _userData.name);
 	while (1) {
 		input = _getch();
 		if (input == ENTER) {
-			show_rank();
+			system("cls");
 			break;
 		}
 	}
@@ -520,5 +528,17 @@ void gamerule()
 	printf("|                     |");
 	gotoxy(x, y++);
 	printf(" =====================");
+
+}
+
+void insert_data(MYSQL* con) {
+	char query[100];
+
+	sprintf(query, "INSERT INTO player (name, score) VALUES('%s', %d)", _userData.name, _userData.score);
+
+	if (mysql_query(con, query)) {
+		fprintf(stderr, "%s\n", mysql_error(con));
+		exit(1);
+	}
 
 }

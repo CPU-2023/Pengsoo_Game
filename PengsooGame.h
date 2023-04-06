@@ -6,6 +6,8 @@
 #define MAP_WIDTH 18
 #define MAP_HEIGHT 100
 
+#define AUTH 0
+
 #define ESC 27
 #define ENTER 13
 #define UP 72
@@ -27,3 +29,4 @@ void drawUI(int* x, int* y, int* key);
 void drawTime(double time, double stime);
 void maze_key();
 void gamerule();
+void insert_data(MYSQL*);
