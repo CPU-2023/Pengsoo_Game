@@ -29,4 +29,6 @@ void drawUI(int* x, int* y, int* key);
 void drawTime(double time, double stime);
 void maze_key();
 void gamerule();
-void insert_data(MYSQL*);
+void insert_data(MYSQL*, int);
+void checkScore();
+void showPost();

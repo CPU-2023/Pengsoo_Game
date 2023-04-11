@@ -56,18 +56,18 @@ int keyControl(int x, int y, int num)
 		case UP: {
 			if (y > key) {
 				gotoxy(x - 2, y);
-				printf(" ");
+				printf("  ");
 				gotoxy(x - 2, --y);
-				printf(">");
+				printf("¢¾");
 			}
 			break;
 		}
 		case DOWN: {
 			if (y < key + num) {
 				gotoxy(x - 2, y);
-				printf(" ");
+				printf("  ");
 				gotoxy(x - 2, ++y);
-				printf(">");
+				printf("¢¾");
 			}
 			break;
 		}

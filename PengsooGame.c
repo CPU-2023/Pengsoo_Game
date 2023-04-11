@@ -1,10 +1,10 @@
-#include "modules.h"
+ï»¿#include "modules.h"
 #include "PengsooGame.h"
 
 
-int Px, Py;	// ÇÃ·¹ÀÌ¾î ÁÂÇ¥ ÀúÀå º¯¼ö¼±¾ğ(x,y)
+int Px, Py;	// í”Œë ˆì´ì–´ ì¢Œí‘œ ì €ì¥ ë³€ìˆ˜ì„ ì–¸(x,y)
 int key = 0;
-int playing = 1; //1ÀÌ¸é °ÔÀÓÁß, 0ÀÌ¸é °ÔÀÓ Á¾·á
+int playing = 1; //1ì´ë©´ ê²Œì„ì¤‘, 0ì´ë©´ ê²Œì„ ì¢…ë£Œ
 int move_key = 0;
 int auth;
 
@@ -13,7 +13,14 @@ typedef struct user {
 	int score;
 }User;
 
+typedef struct guest {
+	char name[15];
+	int password;
+	char contents[100];
+}Guest;
+
 User _userData;
+Guest _guestData;
 
 char tempMap[MAP_WIDTH][MAP_HEIGHT];
 
@@ -24,11 +31,11 @@ char map1[MAP_WIDTH][MAP_HEIGHT] = {
 	{"0"},
 	{"0000000000000000011111111111111111111111111111111111111111111111111111111"},
 	{"0000000000000000010000000100000000000000000000000000000000000000000000001"},
-	{"0000000000000000010000000100000000000000000000000000000000000000000000001"}, // 0 : ºó °ø°£ 
-	{"0000000000000000010001000100000000000000000000000000000000000000000000001"}, // 1 : º® 
-	{"0000000000000000010001000100000000000000000000000000000000000000000000001"}, // k : ¿­¼è 
-	{"0000000000000000010001000100000000000000000000000000000000000000000000001"}, // l : Àá±ä ¹® 
-	{"0000000000000000010001000111111000000000000000000000000000000000000000001"}, // q : Å»Ãâ±¸  
+	{"0000000000000000010000000100000000000000000000000000000000000000000000001"}, // 0 : ë¹ˆ ê³µê°„ 
+	{"0000000000000000010001000100000000000000000000000000000000000000000000001"}, // 1 : ë²½ 
+	{"0000000000000000010001000100000000000000000000000000000000000000000000001"}, // k : ì—´ì‡  
+	{"0000000000000000010001000100000000000000000000000000000000000000000000001"}, // l : ì ê¸´ ë¬¸ 
+	{"0000000000000000010001000111111000000000000000000000000000000000000000001"}, // q : íƒˆì¶œêµ¬  
 	{"0000000000000000010001000000001000000000000000000000000000000000000000001"},
 	{"0000000000000000010001000100001000000000000000000000000000000000000000001"},
 	{"0000000000000000010001000100k01000000000000000000000000000000000011111111"},
@@ -79,12 +86,26 @@ char map3[MAP_WIDTH][MAP_HEIGHT] = {
 };
 
 
+MYSQL* conn;
+MYSQL_RES* res;
+MYSQL_ROW row;
 
+char* server = "127.0.0.1";
+char* user = "root";
+char* password = "mirim"; // ì‹¤ì œ ë¹„ë°€ë²ˆí˜¸ë¡œ ë³€ê²½í•´ì£¼ì„¸ìš”.
+char* database = "CPU";
 
 int main(void) {
 	// PlaySound(TEXT("./sound/marble.wav"), NULL, SND_ASYNC | SND_LOOP);
 	system("mode con cols=120 lines=30 | title Pengsoo Game");
 	CursorView();
+	
+
+	// í™”ë©´ í™•ì¸í•˜ëŠ” ìš©
+	/*
+	while (1) {
+
+	}*/
 
 	int select;
 	int level;
@@ -107,6 +128,9 @@ int main(void) {
 		else if (select == 1) {
 			show_rank();
 		}
+		else if (select == 2) {
+			showPost();
+		}
 		else break;
 
 	}
@@ -121,7 +145,7 @@ int main(void) {
 void show_title() {
 	int x = 17, y = 3;
 
-	setColor(lightblue);
+	setColor(lightcyan);
 	/*gotoxy(x, y++); printf("  _____   ");
 	gotoxy(x, y++); printf(" |  __ \\  ");
 	gotoxy(x, y++); printf(" | |__) |__ _ __   __ _ ___  ___   ___  ");
@@ -153,38 +177,52 @@ void show_title() {
 	y = 18;
 	setColor(white);
 	gotoxy(x, y);
-	printf("Æë¼ö¸¦ ÂÑ¾Æ¼­ ¹Ì·Î¸¦ Å»ÃâÇÏ¼¼¿ä");
+	printf("í­ìˆ˜ë¥¼ ì«“ì•„ì„œ ë¯¸ë¡œë¥¼ íƒˆì¶œí•˜ì„¸ìš”");
 }
 
 
 int draw_menu() {
-	int x = 90, y = 14;
-	gotoxy(x - 2, y); printf("> °ÔÀÓ½ÃÀÛ");
-	gotoxy(x, y + 1); printf("·©Å·º¸±â");
-	gotoxy(x, y + 2); printf("°ÔÀÓÁ¾·á");
+	int x = 90, y = 12;
+	gotoxy(85, y++); printf("------(> o <)-------");
 
-	return keyControl(x, y, 2);
+
+	gotoxy(x - 2, ++y); printf("â™¥ê²Œì„ì‹œì‘");
+	gotoxy(84, y); printf("|");
+	gotoxy(105, y); printf("|");
+	gotoxy(x, y + 1); printf("ë­í‚¹ë³´ê¸°");
+	gotoxy(84, y+1); printf("|");
+	gotoxy(105, y + 1); printf("|");
+	gotoxy(x, y + 2); printf("ë°©ëª…ë¡ ë‚¨ê¸°ê¸°");
+	gotoxy(84, y+2); printf("|");
+	gotoxy(105, y + 2); printf("|");
+	gotoxy(x, y + 3); printf("ê²Œì„ì¢…ë£Œ");
+
+	
+
+	gotoxy(84, y + 4); printf("----------------------");
+
+	return keyControl(x, y, 3);
 }
 
 void setUser() {
 	int setX = 14, setY = 9;
 	system("cls");
-	gotoxy_2x(setX, setY++); printf("¦®¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¯\n");
-	gotoxy_2x(setX, setY++); printf("¦­                                                            ¦­\n");
-	gotoxy_2x(setX, setY++); printf("¦­                                                            ¦­\n");
-	gotoxy_2x(setX, setY++); printf("¦­                                                            ¦­\n");
-	gotoxy_2x(setX, setY++); printf("¦­                                                            ¦­\n");
-	gotoxy_2x(setX, setY++); printf("¦­                                                            ¦­\n");
-	gotoxy_2x(setX, setY++); printf("¦­                                                            ¦­\n");
-	gotoxy_2x(setX, setY++); printf("¦­                                                            ¦­\n");
-	gotoxy_2x(setX, setY++); printf("¦­                                                            ¦­\n");
-	gotoxy_2x(setX, setY++); printf("¦­                                                            ¦­\n");
-	gotoxy_2x(setX, setY++); printf("¦­                                                            ¦­\n");
-	gotoxy_2x(setX, setY++); printf("¦±¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦¬¦°");
+	gotoxy_2x(setX, setY++); printf("â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”“\n");
+	gotoxy_2x(setX, setY++); printf("â”ƒ                                                            â”ƒ\n");
+	gotoxy_2x(setX, setY++); printf("â”ƒ                                                            â”ƒ\n");
+	gotoxy_2x(setX, setY++); printf("â”ƒ                                                            â”ƒ\n");
+	gotoxy_2x(setX, setY++); printf("â”ƒ                                                            â”ƒ\n");
+	gotoxy_2x(setX, setY++); printf("â”ƒ                                                            â”ƒ\n");
+	gotoxy_2x(setX, setY++); printf("â”ƒ                                                            â”ƒ\n");
+	gotoxy_2x(setX, setY++); printf("â”ƒ                                                            â”ƒ\n");
+	gotoxy_2x(setX, setY++); printf("â”ƒ                                                            â”ƒ\n");
+	gotoxy_2x(setX, setY++); printf("â”ƒ                                                            â”ƒ\n");
+	gotoxy_2x(setX, setY++); printf("â”ƒ                                                            â”ƒ\n");
+	gotoxy_2x(setX, setY++); printf("â”—â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”›");
 
 	setY = 9;
 	gotoxy_2x(setX + 5, setY + 4);
-	printf("* Âü°¡ÀÚ´Ô ÀÌ¸§À» ÀÔ·ÂÇØÁÖ¼¼¿ä(5ÀÚÀÌ³») *\n");
+	printf("* ì°¸ê°€ìë‹˜ ì´ë¦„ì„ ì…ë ¥í•´ì£¼ì„¸ìš”(5ìì´ë‚´) *\n");
 	gotoxy_2x(setX + 15, setY + 6);
 	scanf("%s", _userData.name);
 
@@ -197,12 +235,12 @@ int show_maplist() {
 
 	system("cls");
 	gotoxy(x, 3);
-	printf("¸Ê ¼±ÅÃ");
+	printf("ë§µ ì„ íƒ");
 
 	gotoxy(x - 2, y); printf("> Level 1");
 	gotoxy(x, y + 1); printf("Level 2");
 	gotoxy(x, y + 2); printf("Level 3");
-	gotoxy(x, y + 3); printf("µÚ·Î");
+	gotoxy(x, y + 3); printf("ë’¤ë¡œ");
 
 
 	return keyControl(x, y, 3);
@@ -210,14 +248,7 @@ int show_maplist() {
 
 void show_rank() {
 	system("cls");
-	MYSQL* conn;
-	MYSQL_RES* res;
-	MYSQL_ROW row;
-
-	char* server = "127.0.0.1";
-	char* user = "root";
-	char* password = "mirim"; // ½ÇÁ¦ ºñ¹Ğ¹øÈ£·Î º¯°æÇØÁÖ¼¼¿ä.
-	char* database = "test123";
+	
 
 	//user.name
 	//user.score
@@ -225,16 +256,16 @@ void show_rank() {
 	
 	conn = mysql_init(NULL);
 
-	// MySQL ¼­¹ö¿¡ ¿¬°á
+	// MySQL ì„œë²„ì— ì—°ê²°
 	if (!mysql_real_connect(conn, server, user, password, database, 0, NULL, 0)) {
 		fprintf(stderr, "%s\n", mysql_error(conn));
 		exit(1);
 	}
 
-	if (auth) insert_data(conn);
+	if (auth) insert_data(conn, 0);
 
 
-	setColor(lightcyan);
+	setColor(yellow);
 
 	int x = 35, y = 4;
 	gotoxy(x, y++); printf(" 888888ba                    dP       oo ");
@@ -250,16 +281,16 @@ void show_rank() {
 	x = 50, y = 14;
 
 
-	// SELECT Äõ¸® ½ÇÇà
-	if (mysql_query(conn, "SELECT * FROM player ORDER BY score DESC")) {
+	// SELECT ì¿¼ë¦¬ ì‹¤í–‰
+	if (mysql_query(conn, "SELECT * FROM pengsoo ORDER BY score DESC")) {
 		fprintf(stderr, "%s\n", mysql_error(conn));
 		exit(1);
 	}
 
-	// Äõ¸® °á°ú °¡Á®¿À±â
+	// ì¿¼ë¦¬ ê²°ê³¼ ê°€ì ¸ì˜¤ê¸°
 	res = mysql_store_result(conn);
 
-	// °á°ú Ãâ·Â
+	// ê²°ê³¼ ì¶œë ¥
 	setColor(white);
 	gotoxy(x, y);
 	int i = 1;
@@ -268,21 +299,21 @@ void show_rank() {
 		printf("%d\t %s   %s\n", i++, row[0], row[1]);
 	}
 
-	// ¿¬°á ÇØÁ¦
+	// ì—°ê²° í•´ì œ
 	mysql_free_result(res);
 	mysql_close(conn);
 
-	// ÀÔ·Â¹ŞÀ¸¸é ¸ŞÀÎÈ­¸éÀ¸·Î
+	// ì…ë ¥ë°›ìœ¼ë©´ ë©”ì¸í™”ë©´ìœ¼ë¡œ
 	gotoxy(40, 25);
-	printf("¸ŞÀÎÈ­¸éÀ¸·Î µ¹¾Æ°¡·Á¸é ¾Æ¹«Å°³ª ´©¸£¼¼¿ä");
+	printf("ë©”ì¸í™”ë©´ìœ¼ë¡œ ëŒì•„ê°€ë ¤ë©´ ì•„ë¬´í‚¤ë‚˜ ëˆ„ë¥´ì„¸ìš”");
 	_getch();
 }
 
-// °ÔÀÓ ·çÇÁ
+// ê²Œì„ ë£¨í”„
 void gLoop(int map_num) {
-	time_t new_time, old_time;	//°æ°ú ½Ã°£
+	time_t new_time, old_time;	//ê²½ê³¼ ì‹œê°„
 	int DELAY = 0;
-	playing = 1;	// ÃÊ±âÈ­
+	playing = 1;	// ì´ˆê¸°í™”
 
 	switch (map_num)
 	{
@@ -294,8 +325,8 @@ void gLoop(int map_num) {
 		break;
 	}
 
-	drawMap(&Px, &Py);	//¸Ê ¼³Á¤ ÈÄ Ãâ·Â, ¸Ê¿¡ ÁÂÇ¥ Æ÷ÀÎÅÍ¸¦ Àü´Ş
-	old_time = clock();	//½ÃÀÛ½Ã°£
+	drawMap(&Px, &Py);	//ë§µ ì„¤ì • í›„ ì¶œë ¥, ë§µì— ì¢Œí‘œ í¬ì¸í„°ë¥¼ ì „ë‹¬
+	old_time = clock();	//ì‹œì‘ì‹œê°„
 
 
 
@@ -306,7 +337,7 @@ void gLoop(int map_num) {
 		drawUI(&Px, &Py, &key);
 		move_key = getch();
 		new_time = clock();
-		// ½Ã°£Â÷
+		// ì‹œê°„ì°¨
 		double diff = difftime(new_time, old_time);
 		if (diff > DELAY) {
 			gameOver();
@@ -327,10 +358,28 @@ void gLoop(int map_num) {
 
 void gameOver()
 {
-	int input;
 	system("cls");
-	printf("game over\n");
-	printf("%s´ÔÀÇ Á¡¼ö´Â?", _userData.name);
+	int x = 35, y = 4;
+
+	setColor(lightred);
+	gotoxy(x, y++); printf("   _____          __  __ ______    ______      ________ _____ ");
+	gotoxy(x, y++); printf("  / ____|   /\\   |  \\/  |  ____|  / __ \\ \\    / /  ____|  __ \\");
+	gotoxy(x, y++); printf(" | |  __   /  \\  | \\  / | |__    | |  | \\ \\  / /| |__  | |__) |");
+	gotoxy(x, y++); printf(" | | |_ | / /\\ \\ | |\\/| |  __|   | |  | |\\ \\/ / |  __| |  _  /");
+	gotoxy(x, y++); printf(" | |__| |/ ____ \\| |  | | |____  | |__| | \\  /  | |____| | \\ \\");
+	gotoxy(x, y++); printf("  \\_____/_/    \\_\\_|  |_|______|  \\____/   \\/   |______|_|  \\_\\");
+
+	setColor(white);
+	gotoxy(40, 20);
+	printf("%së‹˜ì˜ ì ìˆ˜ë¥¼ í™•ì¸í•˜ë ¤ë©´ ì—”í„°ë¥¼ ëˆŒëŸ¬ì£¼ì„¸ìš”", _userData.name);
+	checkScore();
+	
+}
+
+void checkScore() {
+
+	int input;
+	
 	while (1) {
 		input = _getch();
 		if (input == ENTER) {
@@ -346,56 +395,49 @@ void gameClear()
 	system("cls");
 	int x = 35, y = 4;
 
+	setColor(lightgreen);
 	gotoxy(x, y++); printf("   _____                         _____ _    ");
 	gotoxy(x, y++); printf("  / ____|                       / ____| | ");
-	gotoxy(x, y++); printf(" | |  __  __ _ _ __ ___   ___  | |    | | ");
-	gotoxy(x, y++); printf(" | | |_ |/ _` | '_ ` _ \ / _ \ | |    | |/ _ \/ _` | '__|");
+	gotoxy(x, y++); printf(" | |  __  __ _ _ __ ___   ___  | |    | | ___  __ _ _ __");
+	gotoxy(x, y++); printf(" | | |_ |/ _` | '_ ` _ \\ / _ \\ | |    | |/ _ \\/ _` | '__|");
 	gotoxy(x, y++); printf(" | |__| | (_| | | | | | |  __/ | |____| |  __/ (_| | |   ");
-	gotoxy(x, y++); printf("   \_____|\__,_|_| |_| |_|\___|  \_____|_|\___|\__,_|_|");
+	gotoxy(x, y++); printf("  \\_____|\\__,_|_| |_| |_|\\___|  \\_____|_|\\___|\\__,_|_|");
 
-
-
-	x = 20, y = 20;
-	gotoxy(x, y);
-	printf("%s´ÔÀÇ Á¡¼ö¸¦ È®ÀÎÇÏ·Á¸é ¿£ÅÍ¸¦ ´­·¯ÁÖ¼¼¿ä", _userData.name);
-	while (1) {
-		input = _getch();
-		if (input == ENTER) {
-			system("cls");
-			break;
-		}
-	}
+	setColor(white);
+	gotoxy(40, 20);
+	printf("%së‹˜ì˜ ì ìˆ˜ë¥¼ í™•ì¸í•˜ë ¤ë©´ ì—”í„°ë¥¼ ëˆŒëŸ¬ì£¼ì„¸ìš”", _userData.name);
+	checkScore();
 }
 
 void drawMap(int* x, int* y) {
 	system("cls");
-	int h, w; //¼¼·Î, °¡·Î
+	int h, w; //ì„¸ë¡œ, ê°€ë¡œ
 	for (h = 0; h < 18; h++) {
 		for (w = 0; w < 100; w++) {
-			char temp = tempMap[h][w];	//ÇöÀçÀÇ ¸É µ¥ÀÌÅÍ
-			if (temp == '0') {	//ºó °ø°£(°ø¹é)
+			char temp = tempMap[h][w];	//í˜„ì¬ì˜ ë§´ ë°ì´í„°
+			if (temp == '0') {	//ë¹ˆ ê³µê°„(ê³µë°±)
 				setColor(black);
 				printf(" ");
 			}
-			else if (temp == '1') {	//º®(#)
+			else if (temp == '1') {	//ë²½(#)
 				setBackColor(white, white);
 				printf("#");
 			}
-			else if (temp == 's') {	//ÇÃ·¹ÀÌ¾î(@)
-				*x = w;	//ÇÃ·¹ÀÌ¾î ÁÂÇ¥°ª ÀúÀå
+			else if (temp == 's') {	//í”Œë ˆì´ì–´(@)
+				*x = w;	//í”Œë ˆì´ì–´ ì¢Œí‘œê°’ ì €ì¥
 				*y = h;
 				setColor(cyan);
 				printf("@");
 			}
-			else if (temp == 'q') {	//¸ñÀûÁö(O)
+			else if (temp == 'q') {	//ëª©ì ì§€(O)
 				setColor(lightgreen);
 				printf("O");
 			}
-			else if (temp == 'k') {	//¿­¼è(*)
+			else if (temp == 'k') {	//ì—´ì‡ (*)
 				setColor(yellow);
 				printf("*");
 			}
-			else if (temp == 'l') {	//Àá±ä ¹® 
+			else if (temp == 'l') {	//ì ê¸´ ë¬¸ 
 				setColor(brown);
 				printf("+");
 			}
@@ -405,55 +447,55 @@ void drawMap(int* x, int* y) {
 	setColor(white);
 }
 
-//¿ø·¡ ÁÂÇ¥(x, y), Áõ°¨ÇÒ ÁÂÇ¥(_x, _y)
+//ì›ë˜ ì¢Œí‘œ(x, y), ì¦ê°í•  ì¢Œí‘œ(_x, _y)
 void move(int* x, int* y, int _x, int _y, int* key, int* playing) {
-	//ÀÌµ¿ÇÒ À§Ä¡¿¡ ÀÖ´Â ¸Ê ¹è¿­ÀÇ ¹®ÀÚ ÀÓ½ÃÀúÀå
+	//ì´ë™í•  ìœ„ì¹˜ì— ìˆëŠ” ë§µ ë°°ì—´ì˜ ë¬¸ì ì„ì‹œì €ì¥
 	char mapObject = tempMap[*y + _y][*x + _x];
 	setBackColor(white, black);
 
 	if (mapObject == '0') {
 		gotoxy(*x, *y);
-		printf(" ");	//Áö¿ì±â
-		setBackColor(cyan, black); //»ö ¼³Á¤
-		gotoxy(*x + _x, *y + _y);	//Áõ°¨ÇÑ À§Ä¡·Î ÀÌµ¿ ÈÄ ÇÃ·¹ÀÌ¾î Ãâ·Â
+		printf(" ");	//ì§€ìš°ê¸°
+		setBackColor(cyan, black); //ìƒ‰ ì„¤ì •
+		gotoxy(*x + _x, *y + _y);	//ì¦ê°í•œ ìœ„ì¹˜ë¡œ ì´ë™ í›„ í”Œë ˆì´ì–´ ì¶œë ¥
 		printf("@");
-		*x += _x;	//½ÇÁ¦ ÁÂÇ¥°ª ¹İ¿µ--
+		*x += _x;	//ì‹¤ì œ ì¢Œí‘œê°’ ë°˜ì˜--
 		*y += _y;
 	}
-	else if (mapObject == 'k') {//ÀÌµ¿ÇÒ À§Ä¡¿¡ ¿­¼è°¡ ÀÖÀ¸¸é È¹µæ
-		*key += 1;	//¿­¼è°³¼ö 1°³ Áõ°¡
-		tempMap[*y + _y][*x + _x] = '0';	//È¹µæÇßÀ¸¸é ±âÁ¸¿¡ ÀÖ´ø k¸¦ 0À¸·Î ¼³Á¤
-		gotoxy(*x + _x, *y + _y);	//¿­¼è°¡ ÀÖ´Â À§Ä¡¸¦ Áö¿ò
+	else if (mapObject == 'k') {//ì´ë™í•  ìœ„ì¹˜ì— ì—´ì‡ ê°€ ìˆìœ¼ë©´ íšë“
+		*key += 1;	//ì—´ì‡ ê°œìˆ˜ 1ê°œ ì¦ê°€
+		tempMap[*y + _y][*x + _x] = '0';	//íšë“í–ˆìœ¼ë©´ ê¸°ì¡´ì— ìˆë˜ kë¥¼ 0ìœ¼ë¡œ ì„¤ì •
+		gotoxy(*x + _x, *y + _y);	//ì—´ì‡ ê°€ ìˆëŠ” ìœ„ì¹˜ë¥¼ ì§€ì›€
 		printf(" ");
 	}
 	else if (mapObject == 'l') {
 		if (*key > 0) {
-			*key -= 1;	//¿­¼è°¡ 1°³ ÀÌ»óÀÖÀ¸¸é 1°³ ¼Ò¸ğ
-			tempMap[*y + _y][*x + _x] = '0';	//¹ÃÀÌ ¿­·ÈÀ¸´Ï lµ¥ÀÌÅÍ 0À¸·Î ¼³Á¤
-			setBackColor(white, black);	//»ö ±âº» °ª
+			*key -= 1;	//ì—´ì‡ ê°€ 1ê°œ ì´ìƒìˆìœ¼ë©´ 1ê°œ ì†Œëª¨
+			tempMap[*y + _y][*x + _x] = '0';	//ë®¨ì´ ì—´ë ¸ìœ¼ë‹ˆ lë°ì´í„° 0ìœ¼ë¡œ ì„¤ì •
+			setBackColor(white, black);	//ìƒ‰ ê¸°ë³¸ ê°’
 			gotoxy(*x + _x, *y + _y);
 			printf(" ");
 		}
 	}
 	else if (mapObject == 'q') {
-		*playing = 0;	//1:°ÔÀÓ ÁøÇàÁß, 0:°ÔÀÓÁ¾·á
+		*playing = 0;	//1:ê²Œì„ ì§„í–‰ì¤‘, 0:ê²Œì„ì¢…ë£Œ
 	}
 }
 
-//°ÔÀÓ ÇÏ´Ü¿¡ ÁÂÇ¥ ¹× ¾ÆÀÌÅÛ Á¤º¸ Ãâ·Â
+//ê²Œì„ í•˜ë‹¨ì— ì¢Œí‘œ ë° ì•„ì´í…œ ì •ë³´ ì¶œë ¥
 void drawUI(int* x, int* y, int* key) {
 	setBackColor(white, black);
 	gotoxy(79, 24);
 	printf("--------------------");
 	gotoxy(80, 25);
-	printf("À§Ä¡ : %02d, %02d", *y, *x);
+	printf("ìœ„ì¹˜ : %02d, %02d", *y, *x);
 	gotoxy(79, 26);
 	printf("--------------------");
 	setBackColor(yellow, black);
 	gotoxy(49, 24);
 	printf("---------------");
 	gotoxy(50, 25);
-	printf("¿­¼è : %d°³", *key);
+	printf("ì—´ì‡  : %dê°œ", *key);
 	gotoxy(49, 26);
 	printf("---------------");
 }
@@ -464,7 +506,7 @@ void drawTime(double time, double stime)
 	gotoxy(19, 24);
 	printf("--------------------");
 	gotoxy(20, 25);
-	printf("Á¦ÇÑ ½Ã°£ : %.0f ÃÊ ", (stime - time) / 1000);
+	printf("ì œí•œ ì‹œê°„ : %.0f ì´ˆ ", (stime - time) / 1000);
 	gotoxy(19, 26);
 	printf("--------------------");
 }
@@ -472,58 +514,58 @@ void drawTime(double time, double stime)
 void maze_key() {
 
 	switch (move_key) {
-	case UP:	//À§·Î¿òÁ÷ÀÌ±â
+	case UP:	//ìœ„ë¡œì›€ì§ì´ê¸°
 		move(&Px, &Py, 0, -1, &key, &playing);
 		break;
 
-	case DOWN:	//¾Æ·¡·Î¿òÁ÷ÀÌ±â
+	case DOWN:	//ì•„ë˜ë¡œì›€ì§ì´ê¸°
 		move(&Px, &Py, 0, 1, &key, &playing);
 		break;
 
-	case RIGHT:	//¿À¸¥ÂÊÀ¸·Î¿òÁ÷ÀÌ±â
+	case RIGHT:	//ì˜¤ë¥¸ìª½ìœ¼ë¡œì›€ì§ì´ê¸°
 		move(&Px, &Py, 1, 0, &key, &playing);
 		break;
 
-	case LEFT:	//¿ŞÂÊÀ¸·Î¿òÁ÷ÀÌ±â
+	case LEFT:	//ì™¼ìª½ìœ¼ë¡œì›€ì§ì´ê¸°
 		move(&Px, &Py, -1, 0, &key, &playing);
 		break;
-		//x : 1ÀÌ Áõ°¡ÇÏ¸é ¿À¸¥ÂÊÀ¸·Î ÀÌµ¿
-		//y : 1ÀÌ Áõ°¡ÇÏ¸é ¾Æ·¡·Î ÀÌµ¿
+		//x : 1ì´ ì¦ê°€í•˜ë©´ ì˜¤ë¥¸ìª½ìœ¼ë¡œ ì´ë™
+		//y : 1ì´ ì¦ê°€í•˜ë©´ ì•„ë˜ë¡œ ì´ë™
 
 	case ESC:
 		setColor(white);
-		playing = 0;	//0ÀÌ µÇ¸é ¹İº¹ Á¾·á
+		playing = 0;	//0ì´ ë˜ë©´ ë°˜ë³µ ì¢…ë£Œ
 	}
 }
 void gamerule()
 {
-	// °ÔÀÓ ¹æ¹ı ÄÚµå
+	// ê²Œì„ ë°©ë²• ì½”ë“œ
 	int x = 79, y = 4;
 	setBackColor(white, black);
 	gotoxy(x, y++);
-	printf(" ===== °ÔÀÓ ¹æ¹ı =====");
+	printf(" ===== ê²Œì„ ë°©ë²• =====");
 	gotoxy(x, y++);
 	printf("|                     |");
 	gotoxy(x, y++);
-	printf("|  È­»ìÇ¥¸¦ ¿òÁ÷¿©¼­  |");
+	printf("|  í™”ì‚´í‘œë¥¼ ì›€ì§ì—¬ì„œ  |");
 	gotoxy(x, y++);
-	printf("|       ¡æ ¡ç¡è¡é     |");
+	printf("|       â†’ â†â†‘â†“     |");
 	gotoxy(x, y++);
-	printf("|  ±¸½½À» ¿òÁ÷ÀÌ¼¼¿ä  |");
-	gotoxy(x, y++);
-	printf("|                     |");
-	gotoxy(x, y++);
-	printf("|   Å° (*)¸¦ ¸ğ¾Æ¼­   |");
-	gotoxy(x, y++);
-	printf("|    Àá±ä ¹®(+)À»     |");
-	gotoxy(x, y++);
-	printf("|     ÇØÁ¦ÇÏ¼¼¿ä      |");
+	printf("|  êµ¬ìŠ¬ì„ ì›€ì§ì´ì„¸ìš”  |");
 	gotoxy(x, y++);
 	printf("|                     |");
 	gotoxy(x, y++);
-	printf("|      µµÂøÁö´Â       |");
+	printf("|   í‚¤ (*)ë¥¼ ëª¨ì•„ì„œ   |");
 	gotoxy(x, y++);
-	printf("|      ¡Û ÀÔ´Ï´Ù      |");
+	printf("|    ì ê¸´ ë¬¸(+)ì„     |");
+	gotoxy(x, y++);
+	printf("|     í•´ì œí•˜ì„¸ìš”      |");
+	gotoxy(x, y++);
+	printf("|                     |");
+	gotoxy(x, y++);
+	printf("|      ë„ì°©ì§€ëŠ”       |");
+	gotoxy(x, y++);
+	printf("|      â—‹ ì…ë‹ˆë‹¤      |");
 	gotoxy(x, y++);
 	printf("|                     |");
 	gotoxy(x, y++);
@@ -531,14 +573,86 @@ void gamerule()
 
 }
 
-void insert_data(MYSQL* con) {
+// 0 : ë­í‚¹
+// 1 : ë°©ëª…ë¡
+void insert_data(MYSQL* con, int type) {
 	char query[100];
 
-	sprintf(query, "INSERT INTO player (name, score) VALUES('%s', %d)", _userData.name, _userData.score);
-
+	if (!type) {
+		sprintf(query, "INSERT INTO pengsoo (name, score) VALUES('%s', %d)", _userData.name, _userData.score);
+	}
+	else {
+		sprintf(query, "INSERT INTO guest_book (name, contents) VALUES('%s', '%s')", _guestData.name, _guestData.contents);
+	}
+	
 	if (mysql_query(con, query)) {
 		fprintf(stderr, "%s\n", mysql_error(con));
 		exit(1);
 	}
 
 }
+
+void showPost() {
+	system("cls");
+	printf("ë°©ëª…ë¡ ë‚¨ê¸°ê¸°\n");
+
+	printf("ì´ë¦„ ì…ë ¥ : ");
+	scanf("%s", _guestData.name);
+
+	printf("ë¹„ë°€ë²ˆí˜¸ ì„¤ì • : ");
+	scanf("%d", &_guestData.password);
+
+	printf("ë°©ëª…ë¡ ë‚¨ê¸°ê¸° : ");
+	scanf("%s", _guestData.contents);
+
+	printf("ì—”í„°ë¥¼ ëˆŒëŸ¬ì£¼ì„¸ìš”");
+
+	conn = mysql_init(NULL);
+
+	// MySQL ì„œë²„ì— ì—°ê²°
+	if (!mysql_real_connect(conn, server, user, password, database, 0, NULL, 0)) {
+		fprintf(stderr, "%s\n", mysql_error(conn));
+		exit(1);
+	}
+
+	insert_data(conn, 1);
+
+
+
+	int x = 35, y = 4;
+	gotoxy(x, y++); printf("ë°©ëª…ë¡");
+
+
+
+	// SELECT ì¿¼ë¦¬ ì‹¤í–‰
+	if (mysql_query(conn, "select name, contents from guest_book")) {
+		fprintf(stderr, "%s\n", mysql_error(conn));
+		exit(1);
+	}
+
+	// ì¿¼ë¦¬ ê²°ê³¼ ê°€ì ¸ì˜¤ê¸°
+	res = mysql_store_result(conn);  
+
+
+	// ê²°ê³¼ ì¶œë ¥
+
+	setColor(white);
+	gotoxy(x, y);
+	int i = 1;
+	system("cls");
+	while ((row = mysql_fetch_row(res)) != NULL) {
+		gotoxy(x, y++);
+		printf("%d\t %s   %s\n", i++, row[0], row[1]);
+	}
+
+	// ì—°ê²° í•´ì œ
+	mysql_free_result(res);
+	mysql_close(conn);
+
+	printf("í™ˆìœ¼ë¡œ ëŒì•„ê°€ë ¤ë©´ ì—”í„°ë¥¼ ëˆŒë¥´ì„¸ìš”");
+
+	checkScore();
+
+}
+
+
