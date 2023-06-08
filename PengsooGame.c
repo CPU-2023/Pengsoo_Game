@@ -128,9 +128,6 @@ int main(void) {
 		else if (select == 1) {
 			show_rank();
 		}
-		else if (select == 2) {
-			showPost();
-		}
 		else break;
 
 	}
@@ -186,22 +183,21 @@ int draw_menu() {
 	gotoxy(85, y++); printf("------(> o <)-------");
 
 
-	gotoxy(x - 2, ++y); printf("♥게임시작");
+	gotoxy(x - 2, ++y); printf("♥ 게임시작");
 	gotoxy(84, y); printf("|");
 	gotoxy(105, y); printf("|");
 	gotoxy(x, y + 1); printf("랭킹보기");
 	gotoxy(84, y+1); printf("|");
 	gotoxy(105, y + 1); printf("|");
-	gotoxy(x, y + 2); printf("방명록 남기기");
+	gotoxy(x, y + 2); printf("게임종료");
 	gotoxy(84, y+2); printf("|");
 	gotoxy(105, y + 2); printf("|");
-	gotoxy(x, y + 3); printf("게임종료");
 
 	
 
 	gotoxy(84, y + 4); printf("----------------------");
 
-	return keyControl(x, y, 3);
+	return keyControl(x, y, 2);
 }
 
 void setUser() {
@@ -280,7 +276,7 @@ void show_rank() {
 
 	x = 50, y = 14;
 
-
+	int cnt = 0;
 	// SELECT 쿼리 실행
 	if (mysql_query(conn, "SELECT * FROM pengsoo ORDER BY score DESC")) {
 		fprintf(stderr, "%s\n", mysql_error(conn));
@@ -295,8 +291,10 @@ void show_rank() {
 	gotoxy(x, y);
 	int i = 1;
 	while ((row = mysql_fetch_row(res)) != NULL) {
+		if (cnt > 7) break;
 		gotoxy(x, y++);
 		printf("%d\t %s   %s\n", i++, row[0], row[1]);
+		cnt++;
 	}
 
 	// 연결 해제
